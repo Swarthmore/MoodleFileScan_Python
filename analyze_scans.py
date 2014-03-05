@@ -1,48 +1,84 @@
-#from wand.image import Image, Color
-#import wand.display
-import subprocess
+from wand.image import Image, Color
+from wand.display import display
+import wand.display
 import re
 import io
+import sys, getopt
 
-DEBUG_LEVEL = 1
-#black_color = Color('black')
-#white_color = Color('white')
+DEBUG_LEVEL = 2
+black_color = Color('black')
+white_color = Color('white')
 
 
 def analyze_pdf_file_for_percent_black_magick(file):
-	
 	
 	threshold_filter = "20%"
 	black_list = []
 	max_black = 0
 	max_black_page = 0	
 	black_threshold = 10
+	width = 0
+	height = 0
+	
+	
+	print "Running analyze_pdf_file_for_percent_black_magick on %s" % file
+
 
 	# Split results into one per page based on lines starting with the filename (discard warnings, etc)
-	page_regex = "^%s.*" % re.escape(file)
+	#page_regex = "^%s.*" % re.escape(file)
 	
 	# Find out the size of the page (assume it is always the same as a first estimate)
-	try:
-		identify_output = subprocess.check_output(["identify", file], stderr=subprocess.STDOUT, timeout=60).decode('ascii', "ignore")
-		image_size = re.search("PDF (\d*)x(\d*)", identify_output)
-		
-	except subprocess.CalledProcessError:
-		print ("Can't run identify on file -- skipping ", file)
-		return 0
-		
-	except subprocess.SubprocessError:
-		print("Subprocess error -- skipping file ", file)
-		return 0				
-	
-	if DEBUG_LEVEL >= 2:
-		print(identify_output)	
+	#try:
+	with Image(filename=file) as img:
+		# Calculate image size
+		width = img.width
+		height = img.height	
 
-	# Calculate mask size
-	width = float(image_size.group(1))
-	height = float(image_size.group(2))	
+		if DEBUG_LEVEL >= 2:
+			print "File width: %d, height %d" % (width, height)
+		
+		#palette = img.histogram.keys()
+		#print palette	
 	
-	if DEBUG_LEVEL >= 2:
-		print ("Width ", width, " height ", height)
+		img.type = 'grayscale'
+		img.alpha_channel = False
+		palette = img.histogram.keys()
+		#print palette				
+
+		# create a new image of the same size, but with white all around
+		with Image(width=img.width, height=img.height) as mask_image:
+			mask_image.format = 'png'
+		
+			with Color('white') as fg:
+				with Image(width=int(img.width*0.6), height=int(img.height*0.6), background=fg) as inner_mask_image:
+				
+					mask_image.composite_channel(
+						channel='all_channels',
+						image=inner_mask_image,
+						operator='over',
+						left=int(mask_image.width*0.2),
+						top=int(mask_image.height*0.2)
+					)	
+					"""
+					mask_image.composite_channel(
+						channel='all_channels',
+						image=img.sequence[0],
+						operator='over',
+						left=0,
+						top=0
+					)				
+					"""
+					mask_image.save(filename='/Users/aruether/Desktop/test.png')
+					display(mask_image)
+	
+	
+	#except Exception as e:
+	#	print "Can't get size of file \"%s\"-- skipping " % file
+	#	return 0			
+
+	
+
+
 	x0 = int(width*0.2)
 	y0 = int(height*0.2)
 	x1 = int(width*0.8)
@@ -51,7 +87,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 
 	if DEBUG_LEVEL >= 2:
 		print(mask)
-
+"""
 	try:
 		histogram = subprocess.check_output(["convert", file, "-depth", "8", "-colorspace", "Gray", "-alpha", "off", "-black-threshold", threshold_filter, "-fill", "white", "-draw", mask, "-type", "bilevel", "-define", "histogram:unique-colors=true", "-verbose", "-format", "%c", "histogram:info:-"], stderr=subprocess.STDOUT, timeout=60)
 		
@@ -117,6 +153,25 @@ def analyze_pdf_file_for_percent_black_magick(file):
 				
 		return 1
 
+"""
+		
 
+inputfile = ''
+outputfile = ''
+
+try:
+	opts, args = getopt.getopt(sys.argv[1:],"i:o:",["ifile=","ofile="])
+except getopt.GetoptError:
+	print 'Usage: -i <inputfile> -o <outputfile>'
+	sys.exit(2)
+for opt, arg in opts:
+	if opt in ("-i", "--ifile"):
+         inputfile = arg
+	elif opt in ("-o", "--ofile"):
+		outputfile = arg
+
+analyze_pdf_file_for_percent_black_magick(inputfile)		
+		
+		
 		
 version = '0.1'		
