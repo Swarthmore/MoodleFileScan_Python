@@ -30,7 +30,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 	
 	# Convert the PDF file into a sequence of images
 	with Image(filename=file) as img:
-		i.save(filename='tmp.png')
+		img.save(filename='./tmp/tmp.png')
 	"""
 	
 	
@@ -66,7 +66,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 						left=int(mask_image.width*0.2),
 						top=int(mask_image.height*0.2)
 					)	
-					"""
+
 					mask_image.composite_channel(
 						channel='all_channels',
 						image=img.sequence[0],
@@ -74,7 +74,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 						left=0,
 						top=0
 					)				
-					"""
+
 					mask_image.save(filename='/Users/aruether/Desktop/test.png')
 					display(mask_image)
 	
