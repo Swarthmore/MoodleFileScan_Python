@@ -1,5 +1,6 @@
 from wand.image import Image, Color
 from wand.display import display
+import PIL
 import wand.display
 import re
 import io
@@ -26,6 +27,12 @@ def analyze_pdf_file_for_percent_black_magick(file):
 
 	# Split results into one per page based on lines starting with the filename (discard warnings, etc)
 	#page_regex = "^%s.*" % re.escape(file)
+	
+	# Convert the PDF file into a sequence of images
+	with Image(filename=file) as img:
+		i.save(filename='tmp.png')
+	"""
+	
 	
 	# Find out the size of the page (assume it is always the same as a first estimate)
 	#try:
@@ -87,7 +94,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 
 	if DEBUG_LEVEL >= 2:
 		print(mask)
-"""
+
 	try:
 		histogram = subprocess.check_output(["convert", file, "-depth", "8", "-colorspace", "Gray", "-alpha", "off", "-black-threshold", threshold_filter, "-fill", "white", "-draw", mask, "-type", "bilevel", "-define", "histogram:unique-colors=true", "-verbose", "-format", "%c", "histogram:info:-"], stderr=subprocess.STDOUT, timeout=60)
 		
