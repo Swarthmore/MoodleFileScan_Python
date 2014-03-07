@@ -1,19 +1,19 @@
-from wand.image import Image, Color
-from wand.display import display
-import PIL
-import wand.display
+import wand.image
+import PIL.Image, PIL.ImageStat, PIL.ImageDraw
 import re
 import io
 import sys, getopt
+import os, glob, shutil
+
 
 DEBUG_LEVEL = 2
-black_color = Color('black')
-white_color = Color('white')
 
 
 def analyze_pdf_file_for_percent_black_magick(file):
 	
-	threshold_filter = "20%"
+	threshold_filter = 150
+	border_size = 0.15  # percentage of document on each side
+	
 	black_list = []
 	max_black = 0
 	max_black_page = 0	
@@ -24,16 +24,63 @@ def analyze_pdf_file_for_percent_black_magick(file):
 	
 	print "Running analyze_pdf_file_for_percent_black_magick on %s" % file
 
+	
 
-	# Split results into one per page based on lines starting with the filename (discard warnings, etc)
-	#page_regex = "^%s.*" % re.escape(file)
-	
 	# Convert the PDF file into a sequence of images
-	with Image(filename=file) as img:
-		img.save(filename='./tmp/tmp.png')
+	with wand.image.Image(filename=file) as img:
+		img.save(filename='./tmp/tmp.jpg')
+	
+	
+	# Get the list of files 
+	image_listing = sorted(glob.glob('./tmp/*.jpg'))
+	
+	# Loop through all the images
+	for image_file in image_listing:	
+		im = PIL.Image.open(image_file)
+		size = im.size
+		print "Height: %d, Width %d" %(size[1], size[0])
+	
+		#print PIL.ImageStat.Stat(im).sum
+		#print im.histogram()
+		
+		# Convert to greyscale
+		im = im.convert("L")	
+		#im.save(image_file + "_grey.jpg", "JPEG")	
+		
+
+		# Create a  mask in the center of the page
+		mask_width = round((1.0-2*border_size)*size[0])
+		mask_height = round((1.0-2*border_size)*size[1])
+		print "Mask width: %d, height: %d" % (mask_width, mask_height)
+		
+		mask = PIL.Image.new("L", (mask_width, mask_height),255)	# same size as image		
+		mask.save(image_file + "_mask.jpg", "JPEG")
+
+		offset=(round(border_size*size[0]), round(border_size*size[1]))
+		im.paste(mask,offset)
+	
+	
+	
+		# Convert to black and white
+		table = []
+		for i in range(256):
+			if i < threshold_filter:
+				table.append(0) # black
+			else:
+				table.append(255) # white
+		
+		im = im.point(table) 
+	
+	
+		#im.save(image_file + "_thresh.jpg", "JPEG")
+		
+		# Compare black to white
+		hist = im.histogram()
+		percent_black = (float(hist[0])) / (hist[0] + hist[255])
+		
+		print "Percent black:  %f" % (percent_black*100)
+	
 	"""
-	
-	
 	# Find out the size of the page (assume it is always the same as a first estimate)
 	#try:
 	with Image(filename=file) as img:
@@ -163,6 +210,24 @@ def analyze_pdf_file_for_percent_black_magick(file):
 """
 		
 
+
+
+def empty_tmp_folder():
+	# Thanks to http://stackoverflow.com/a/6615332
+	folder_path = './tmp'
+	for file_object in os.listdir(folder_path):
+		file_object_path = os.path.join(folder_path, file_object)
+		if os.path.isfile(file_object_path):
+			os.unlink(file_object_path)
+		else:
+			shutil.rmtree(file_object_path)
+			
+		
+		
+		
+		
+		
+			
 inputfile = ''
 outputfile = ''
 
@@ -177,8 +242,9 @@ for opt, arg in opts:
 	elif opt in ("-o", "--ofile"):
 		outputfile = arg
 
+empty_tmp_folder()
 analyze_pdf_file_for_percent_black_magick(inputfile)		
-		
+#empty_tmp_folder()		
 		
 		
 version = '0.1'		
