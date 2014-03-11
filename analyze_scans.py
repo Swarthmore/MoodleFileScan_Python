@@ -6,11 +6,19 @@ import sys, getopt
 import os, glob, shutil
 import ConfigParser
 import pickledb
+from pprint import pprint
+import math
+import gfx
+
 
 DEBUG_LEVEL = 1
+ocr_temp_file_path = './tmp/ocr.txt'
+image_temp_file_path = './tmp/tmp.jpg'
+
+def analyze_pdf_file_for_percent_black_magick(file_db, contenthash, file_info):
 
 
-def analyze_pdf_file_for_percent_black_magick(file):
+	file = os.path.join(moodle_file_dir, contenthash[0:2], contenthash[2:4],contenthash)
 	
 	threshold_filter = 150
 	border_size = 0.15  # percentage of document on each side
@@ -23,13 +31,13 @@ def analyze_pdf_file_for_percent_black_magick(file):
 	height = 0
 	page_number = 1
 	
-	print "Running analyze_pdf_file_for_percent_black_magick on %s" % file
+	print "\n\n==============================\nRunning analyze_pdf_file_for_percent_black_magick on %s" % file
 
 	
 	try:
 		# Convert the PDF file into a sequence of images
 		with wand.image.Image(filename=file) as img:
-			img.save(filename='./tmp/tmp.jpg')
+			img.save(filename=image_temp_file_path)
 
 		# Get the list of files 
 		image_listing = sorted(glob.glob('./tmp/*.jpg'))
@@ -85,7 +93,7 @@ def analyze_pdf_file_for_percent_black_magick(file):
 			percent_black = 100*(float(hist[0])) / (hist[0] + hist[255])
 		
 			if DEBUG_LEVEL >= 1:
-				print "Page %d: black percentage: %.2f" % (page_number, percent_black)		
+				print "Page %d: black percentage: %.1f" % (page_number, percent_black)		
 		
 			black_list.append(percent_black)
 			max_black = max(percent_black, max_black)
@@ -96,21 +104,30 @@ def analyze_pdf_file_for_percent_black_magick(file):
 			page_number += 1
 
 
-		print "Maximum black %.2f on page %d" % (max_black, max_black_page)
+		print "Maximum black %.1f on page %d" % (max_black, max_black_page)
 
 		if max_black < black_threshold:
 			print ("No large areas of black detected")
-			return 0
 		else:
 			print ("Large areas of black detected")
 
 		if DEBUG_LEVEL >= 2:
 			for (i, item) in enumerate(black_list):
 				if (item > black_threshold):
-					print "Page %d is %.1f black"	% ( (i+1), item)
+					print "Page %d is %.1f%% black"	% ( (i+1), item)
 		
+		# Save scan info to pickledb
+		file_info['scan_status'] = {
+			'black_list': black_list,
+			'max_black': max_black,
+			'max_black_page': max_black_page
+		}
+
+		file_db.dadd('moodle_files', (contenthash, file_info))
 		
-		
+		if DEBUG_LEVEL >= 1:
+			print "Updated file database for %s" % contenthash
+			pprint(file_info)
 			
 	except Exception,e:  
 		print "Problem processing file.  Skipping %s\n%s" % (file, str(e))
@@ -135,6 +152,44 @@ def empty_tmp_folder():
 		else:
 			shutil.rmtree(file_object_path)
 			
+	
+	
+	
+	
+	
+	
+	
+# See if a PDF file contains text and record the results in the database	
+def check_pdf_for_ocr(file_db, contenthash, file_info):
+
+	file = os.path.join(moodle_file_dir, contenthash[0:2], contenthash[2:4],contenthash)
+
+	doc = gfx.open("pdf", file)
+	text = gfx.PlainText()
+	for pagenr in range(1,doc.pages+1):
+		page = doc.getPage(pagenr)
+		text.startpage(page.width, page.height)
+		page.render(text)
+		text.endpage()
+	print text
+	text.save(ocr_temp_file_path)
+	
+	# See how big the text file is.  If it is empty, the file is empty
+	statinfo = os.stat(ocr_temp_file_path)
+	if statinfo.st_size > 0 :
+		file_info['ocr_status'] = True
+	else:
+		file_info['ocr_status'] = False
+
+	# Save updated info to db
+	file_db.dadd('moodle_files', (contenthash, file_info))
+	
+	if DEBUG_LEVEL >= 1:
+		print "OCR status: %r" % file_info['ocr_status']
+
+
+	
+
 		
 
 ################## MAIN PROGRAM #####################
@@ -160,13 +215,33 @@ for opt, arg in opts:
 """
 
 file_db=pickledb.load(Config.get("PickleDB", "filepath"),True)
+moodle_file_dir = Config.get("Moodle", "filedir")
 
-for f in file_db.lgetall('moodle_files'):
-	print f
+for contenthash in file_db.dgetall('moodle_files'):
 
-	empty_tmp_folder()
-	analyze_pdf_file_for_percent_black_magick(inputfile)		
-	empty_tmp_folder()		
+	file_info = file_db.dget('moodle_files', contenthash)
+
+	# only process unchecked files
+	if not file_info['checked']:
+		empty_tmp_folder()
+		
+		if file_info['scan_status'] is None:
+			analyze_pdf_file_for_percent_black_magick(file_db, contenthash, file_info)
+		
+		if file_info['ocr_status'] is None:
+			check_pdf_for_ocr(file_db, contenthash, file_info)
+		
+		# Mark as checked if OCR and Scan are done
+		if (file_info['ocr_status'] is not None) and (file_info['scan_status'] is not None):
+			file_info['checked'] = True	
+			file_db.dadd('moodle_files', (contenthash, file_info))
+		
+		# Clean up
+		empty_tmp_folder()	
+		
+	else:
+		print "\n\nSkipping: Already checked %s (%s)" % (contenthash, file_info['filename'])
+
 		
 		
 version = '0.1'		
