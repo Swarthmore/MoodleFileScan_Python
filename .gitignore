@@ -1,4 +1,5 @@
 *.conf
 *.png
+*.db
 
 *.py[cod]

@@ -4,7 +4,8 @@ import re
 import io
 import sys, getopt
 import os, glob, shutil
-
+import ConfigParser
+import pickledb
 
 DEBUG_LEVEL = 1
 
@@ -135,11 +136,14 @@ def empty_tmp_folder():
 			shutil.rmtree(file_object_path)
 			
 		
+
+################## MAIN PROGRAM #####################
 		
 		
-		
-		
+Config = ConfigParser.ConfigParser()
+Config.read("./moodle_filescan.conf")	
 			
+"""
 inputfile = ''
 outputfile = ''
 
@@ -153,10 +157,16 @@ for opt, arg in opts:
          inputfile = arg
 	elif opt in ("-o", "--ofile"):
 		outputfile = arg
+"""
 
-empty_tmp_folder()
-analyze_pdf_file_for_percent_black_magick(inputfile)		
-#empty_tmp_folder()		
+file_db=pickledb.load(Config.get("PickleDB", "filepath"),True)
+
+for f in file_db.lgetall('moodle_files'):
+	print f
+
+	empty_tmp_folder()
+	analyze_pdf_file_for_percent_black_magick(inputfile)		
+	empty_tmp_folder()		
 		
 		
 version = '0.1'		
