@@ -1,5 +1,9 @@
 *.conf
 *.png
 *.db
+*.log
+*.kch
+
+tmp/
 
 *.py[cod]
