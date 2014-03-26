@@ -3,7 +3,7 @@
 *.db
 *.log
 *.kch
-
+*.csv
 tmp/
 
 *.py[cod]
