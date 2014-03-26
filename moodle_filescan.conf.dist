@@ -1,0 +1,21 @@
+[MySQL]
+host: moodle.example.edu
+user: 
+passwd: 
+db: 
+
+[Local_DB]
+filepath: ./filestore.kch
+
+[Moodle]
+moodle_url: https://moodle.example.edu
+filedir: path_to_moodle/filedir/
+
+[OCR]
+max_pages_to_check: 3
+
+[Scan]
+black_threshold: 10
+
+[Reporting]
+report_filename: moodle_pdf_report.csv
