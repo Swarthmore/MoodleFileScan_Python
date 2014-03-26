@@ -22,7 +22,7 @@ DEBUG_LEVEL = 2
 ocr_temp_file_path = './tmp/ocr.txt'
 image_temp_file_path = './tmp/tmp.jpg'
 
-def analyze_pdf_file_for_percent_black_magick(file_db, contenthash, file_info):
+def analyze_pdf_file_for_percent_black(file_db, contenthash, file_info):
 
 	file = os.path.join(moodle_file_dir, contenthash[0:2], contenthash[2:4],contenthash)
 	
@@ -37,7 +37,7 @@ def analyze_pdf_file_for_percent_black_magick(file_db, contenthash, file_info):
 	height = 0
 	page_number = 1
 	
-	print "\n\n==============================\nRunning analyze_pdf_file_for_percent_black_magick on %s" % file
+	print "\n\n==============================\nRunning analyze_pdf_file_for_percent_black on %s" % file
 
 	
 	try:
@@ -279,7 +279,7 @@ while True:
 	if not file_info['checked']:
    
 		if file_info['scan_status'] is None:
-			analyze_pdf_file_for_percent_black_magick(file_db, contenthash, file_info)
+			analyze_pdf_file_for_percent_black(file_db, contenthash, file_info)
    
 		if file_info['ocr_status'] is None:
 			check_pdf_for_ocr(file_db, contenthash, file_info)
